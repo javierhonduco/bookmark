@@ -7,9 +7,14 @@ use std::collections::HashMap;
 use bitflags::bitflags;
 
 use nix::sys::uio::pread;
+use nix::unistd::geteuid;
+
 use std::convert::TryInto;
 use std::os::unix::io::AsRawFd;
 use structopt::StructOpt;
+
+#[macro_use]
+extern crate more_asserts;
 
 const PAGE_SIZE: u64 = 0x1000;
 
@@ -128,7 +133,64 @@ fn fetch_pagemaps(map: &MemoryMap, pagemaps_file: &File) -> Vec<(u64, PageMap)> 
     result
 }
 
+#[derive(Debug, Clone)]
+struct PageStats {
+    swapped: u32,
+    present: u32,
+    unmapped: u32,
+    total: u32,
+}
+
+impl Default for PageStats {
+    fn default() -> Self {
+        Self {
+            swapped: 0,
+            present: 0,
+            unmapped: 0,
+            total: 0,
+        }
+    }
+}
+
+fn page_stats(pid: u32) -> HashMap<String, PageStats> {
+    let mut memory_maps = memory_maps(pid);
+
+    let pagemaps_path = format!("/proc/{}/pagemap", pid);
+    let pagemaps_file = File::open(pagemaps_path).unwrap();
+    let mut stats = HashMap::new();
+
+    let anonymous = "anon".to_string();
+
+    for map in memory_maps.iter_mut() {
+        let physical_pages = fetch_pagemaps(map, &pagemaps_file);
+
+        for physical_page in &physical_pages {
+            let path = map.path.as_ref().unwrap_or(&anonymous);
+            let entry = stats
+                .entry(path.to_string())
+                .or_insert(PageStats::default());
+            if physical_page.1.is_swapped() {
+                entry.swapped += 1;
+            }
+            if physical_page.1.is_present() {
+                entry.present += 1;
+            }
+            if physical_page.1.pfn() == 0 {
+                entry.unmapped += 1;
+            }
+            entry.total += 1;
+        }
+    }
+
+    stats
+}
+
 fn main() {
+    if !geteuid().is_root() {
+        eprintln!("root is required");
+        return;
+    }
+
     let opt = Opt::from_args();
 
     let pid = opt.pid;
@@ -169,56 +231,54 @@ fn main() {
             }
         }
         Command::Stats {} => {
-            let pagemaps_path = format!("/proc/{}/pagemap", pid);
-            let pagemaps_file = File::open(pagemaps_path).unwrap();
-            let mut stats = HashMap::new();
-
-            let anonymous = "anon".to_string();
-
-            #[derive(Debug)]
-            struct PageStats {
-                swapped: u32,
-                present: u32,
-                unmapped: u32,
-                total: u32,
-            }
-
-            impl Default for PageStats {
-                fn default() -> Self {
-                    Self {
-                        swapped: 0,
-                        present: 0,
-                        unmapped: 0,
-                        total: 0,
-                    }
-                }
-            }
-
-            for map in memory_maps.iter_mut() {
-                let physical_pages = fetch_pagemaps(map, &pagemaps_file);
-
-                for physical_page in &physical_pages {
-                    let path = map.path.as_ref().unwrap_or(&anonymous);
-                    let entry = stats.entry(path).or_insert(PageStats::default());
-                    if physical_page.1.is_swapped() {
-                        entry.swapped += 1;
-                    }
-                    if physical_page.1.is_present() {
-                        entry.present += 1;
-                    }
-                    if physical_page.1.pfn() == 0 {
-                        entry.unmapped += 1;
-                    }
-                    entry.total += 1;
-                }
-            }
-
-            let mut sorted_start: Vec<_> = stats.into_iter().collect();
+            let mut sorted_start: Vec<_> = page_stats(pid).into_iter().collect();
             sorted_start.sort_by(|a, b| a.1.swapped.cmp(&b.1.swapped));
 
             for (path, count) in sorted_start {
                 println!("{} {:?}", path, count);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nix::unistd::getpid;
+
+    use super::*;
+    use std::mem;
+
+    #[test]
+    fn test_pagemap_size() {
+        assert_eq!(mem::size_of::<PageMap>(), mem::size_of::<u64>());
+    }
+
+    #[test]
+    fn test_pagemap_members() {
+        assert_eq!(PageMap::SWAPPED.bits, 0x4000000000000000);
+        assert_eq!(PageMap::PRESENT.bits, 0x8000000000000000);
+        assert_eq!(PageMap::PFN.bits, 0x7fffffffffffff);
+    }
+
+    #[test]
+    fn test_stats() {
+        fn self_stats() -> PageStats {
+            page_stats(getpid().as_raw() as u32)
+                .get("anon")
+                .unwrap()
+                .clone()
+        }
+
+        let before = self_stats();
+        let mut vec: Vec<u64> = Vec::with_capacity(100_000);
+        let after_alloc = self_stats();
+        vec.fill(1);
+        let after_touch = self_stats();
+
+        // As the pages haven't been touched yet, they are not mapped
+        // at this point
+        assert_gt!(after_alloc.unmapped, before.unmapped);
+        // After touching them, they get mapped or present
+        assert_gt!(after_touch.present, before.present);
     }
 }
