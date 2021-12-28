@@ -15,8 +15,6 @@ const PAGE_SIZE: u64 = 0x1000;
 
 #[derive(StructOpt)]
 struct Opt {
-    // #[structopt(short, long)]
-    // debug: bool,
     #[structopt(short, long)]
     pid: u32,
     #[structopt(subcommand)]
@@ -58,52 +56,26 @@ impl PageMap {
     }
 }
 
-/*
-* /proc/pid/pagemap.  This file lets a userspace process find out which
-physical frame each virtual page is mapped to.  It contains one 64-bit
-value for each virtual page, containing the following data (from
-fs/proc/task_mmu.c, above pagemap_read):
-
- * Bits 0-54  page frame number (PFN) if present
- * Bits 0-4   swap type if swapped
- * Bits 5-54  swap offset if swapped
- * Bit  55    pte is soft-dirty (see Documentation/vm/soft-dirty.txt)
- * Bit  56    page exclusively mapped (since 4.2)
- * Bits 57-60 zero
- * Bit  61    page is file-page or shared-anon (since 3.5)
- * Bit  62    page swapped
- * Bit  63    page present */
+// From https://www.kernel.org/doc/html/latest/admin-guide/mm/pagemap.html?highlight=pagemap
+//
+// > * Bits 0-54  page frame number (PFN) if present
+// > * Bits 0-4   swap type if swapped
+// > * Bits 5-54  swap offset if swapped
+// > * Bit  55    pte is soft-dirty (see Documentation/vm/soft-dirty.txt)
+// > * Bit  56    page exclusively mapped (since 4.2)
+// > * Bits 57-60 zero
+// > * Bit  61    page is file-page or shared-anon (since 3.5)
+// > * Bit  62    page swapped
+// > * Bit  63    page present
 
 #[derive(Debug)]
 struct MemoryMap {
     low_addr: u64,
     high_addr: u64,
     path: Option<String>,
-    // physical_pages: Vec<(u64, PageMap)>, // low virtual address
 }
 
 impl MemoryMap {
-    /*
-    fn count_swapped(&self) -> i32 {
-        let mut count = 0;
-        for page in &self.physical_pages {
-            if page.1.is_swapped() {
-                count += 1;
-            }
-        }
-        count
-    }
-
-    fn count_present(&self) -> i32 {
-        let mut count = 0;
-        for page in &self.physical_pages {
-            if page.1.is_present() {
-                count += 1;
-            }
-        }
-        count
-    } */
-
     fn is_anon(&self) -> bool {
         self.path.is_none()
     }
@@ -123,7 +95,6 @@ fn memory_maps(pid: u32) -> Vec<MemoryMap> {
                 low_addr: u64::from_str_radix(low_addr, 16).unwrap(),
                 high_addr: u64::from_str_radix(high_addr, 16).unwrap(),
                 path: path.map(|s| s.to_string()),
-                // physical_pages: Vec::new(),
             })
         }
     }
@@ -250,13 +221,4 @@ fn main() {
             }
         }
     }
-
-    /*
-        let mut maps_tree = BTreeMap::new();
-
-        let addr = 0x55daedfcba10;
-        let mut before = maps_tree.range((Unbounded, Excluded(addr)));
-        let result = before.next_back();
-        println!("=>>>> {:?}", result);
-    */
 }
