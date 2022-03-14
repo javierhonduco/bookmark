@@ -27,7 +27,10 @@ enum Command {
         #[structopt(short, long)]
         anon: bool,
     },
-    Stats {},
+    Stats {
+        #[structopt(short, long)]
+        json: bool,
+    },
 }
 
 fn main() {
@@ -75,12 +78,22 @@ fn main() {
                 }
             }
         }
-        Command::Stats {} => {
-            let mut sorted_start: Vec<_> = stats::page_stats(pid).into_iter().collect();
-            sorted_start.sort_by(|a, b| a.1.swapped.cmp(&b.1.swapped));
+        Command::Stats { json } => {
+            let page_stats = stats::page_stats(pid);
 
-            for (path, count) in sorted_start {
-                println!("{} {:?}", path, count);
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string(&page_stats).expect("json failed")
+                );
+            } else {
+                let mut sorted_start: Vec<_> = page_stats.into_iter().collect();
+
+                sorted_start.sort_by(|a, b| a.1.swapped.cmp(&b.1.swapped));
+
+                for (path, count) in sorted_start {
+                    println!("{} {:?}", path, count);
+                }
             }
         }
     }

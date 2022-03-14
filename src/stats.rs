@@ -1,9 +1,10 @@
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
 
 use crate::memory;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PageStats {
     pub swapped: u32,
     pub present: u32,
