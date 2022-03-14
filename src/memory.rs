@@ -78,25 +78,25 @@ impl PageMap {
 pub fn fetch_pagemaps(map: &MemoryMap, pagemaps_file: &File) -> Vec<(u64, PageMap)> {
     let mut result = Vec::new();
 
-    let mut current_addr = map.low_addr;
+    let low_addr = map.low_addr;
     let high_addr = map.high_addr;
 
-    while current_addr < high_addr {
-        let mut buffer = [0; 8];
-        pread(
-            pagemaps_file.as_raw_fd(),
-            &mut buffer[..],
-            (current_addr / PAGE_SIZE * 8).try_into().unwrap(),
-        )
-        .unwrap();
+    (low_addr..high_addr)
+        .step_by(PAGE_SIZE as usize)
+        .for_each(|current_addr| {
+            let mut buffer = [0; 8];
+            pread(
+                pagemaps_file.as_raw_fd(),
+                &mut buffer[..],
+                (current_addr / PAGE_SIZE * 8).try_into().unwrap(),
+            )
+            .unwrap();
 
-        result.push((
-            current_addr,
-            PageMap::from_bits_truncate(u64::from_ne_bytes(buffer)),
-        ));
-
-        current_addr += PAGE_SIZE;
-    }
+            result.push((
+                current_addr,
+                PageMap::from_bits_truncate(u64::from_ne_bytes(buffer)),
+            ));
+        });
 
     result
 }
