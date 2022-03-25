@@ -1,3 +1,6 @@
+pub mod memory;
+pub mod stats;
+
 pub fn set_num_threads(count: usize) {
     rayon::ThreadPoolBuilder::new()
         .num_threads(count)

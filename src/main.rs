@@ -3,9 +3,9 @@ use std::fs::File;
 use nix::unistd::geteuid;
 use structopt::StructOpt;
 
-mod lib;
-mod memory;
-mod stats;
+use bookmark::memory;
+use bookmark::set_num_threads;
+use bookmark::stats;
 
 #[macro_use]
 extern crate more_asserts;
@@ -47,7 +47,7 @@ fn main() {
     let pid = opt.pid;
 
     let mut memory_maps = memory::memory_maps(pid);
-    lib::set_num_threads(opt.threads);
+    set_num_threads(opt.threads);
 
     match opt.cmd {
         Command::List {
