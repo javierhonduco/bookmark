@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 use bitflags::bitflags;
 use nix::sys::uio::pread;
 use std::convert::TryInto;
@@ -5,7 +7,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::os::unix::io::AsRawFd;
 
-const PAGE_SIZE: u64 = 0x1000;
+const PAGE_SIZE: usize = 0x1000;
 
 // From https://www.kernel.org/doc/html/latest/admin-guide/mm/pagemap.html?highlight=pagemap
 //
@@ -75,15 +77,14 @@ impl PageMap {
     }
 }
 
-pub fn fetch_pagemaps(map: &MemoryMap, pagemaps_file: &File) -> Vec<(u64, PageMap)> {
-    let mut result = Vec::new();
-
-    let low_addr = map.low_addr;
-    let high_addr = map.high_addr;
+pub fn fetch_pagemaps(map: &MemoryMap, pagemaps_file: &File) -> Vec<(usize, PageMap)> {
+    let low_addr: usize = map.low_addr as usize;
+    let high_addr: usize = map.high_addr as usize;
 
     (low_addr..high_addr)
-        .step_by(PAGE_SIZE as usize)
-        .for_each(|current_addr| {
+        .into_par_iter()
+        .step_by(PAGE_SIZE)
+        .map(|current_addr| {
             let mut buffer = [0; 8];
             pread(
                 pagemaps_file.as_raw_fd(),
@@ -92,11 +93,10 @@ pub fn fetch_pagemaps(map: &MemoryMap, pagemaps_file: &File) -> Vec<(u64, PageMa
             )
             .unwrap();
 
-            result.push((
+            (
                 current_addr,
                 PageMap::from_bits_truncate(u64::from_ne_bytes(buffer)),
-            ));
-        });
-
-    result
+            )
+        })
+        .collect()
 }

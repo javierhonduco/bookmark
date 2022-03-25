@@ -3,6 +3,7 @@ use std::fs::File;
 use nix::unistd::geteuid;
 use structopt::StructOpt;
 
+mod lib;
 mod memory;
 mod stats;
 
@@ -13,6 +14,8 @@ extern crate more_asserts;
 struct Opt {
     #[structopt(short, long)]
     pid: u32,
+    #[structopt(short, long, default_value = "2")]
+    threads: usize,
     #[structopt(subcommand)]
     cmd: Command,
 }
@@ -42,7 +45,9 @@ fn main() {
     let opt = Opt::from_args();
 
     let pid = opt.pid;
+
     let mut memory_maps = memory::memory_maps(pid);
+    lib::set_num_threads(opt.threads);
 
     match opt.cmd {
         Command::List {
