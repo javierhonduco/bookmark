@@ -1,14 +1,16 @@
 ## bookmark
 
-Bookmark is a tool to gather information on a process' physical memory pages. This can be useful to understand the state of physical pages such as: from being unmapped to present or from present <> swapped.
+Bookmark is a tool to gather information on a process' physical memory pages. This can be useful to understand the state of physical pages, whether they are mapped or not, and if they are in memory or swapped out.
 
-Note that root is needed to read `/proc/:pid/pagemap`
+Note that root is needed to read `/proc/<pid>/pagemap`
+
 ### Usage
 
-Show page statistics grouped by the file backing:
+
+#### Show page statistics grouped by backing file
 
 ```shell
-$ sudo ./target/release/bookmark --pid $$ stats
+$ sudo ./target/release/bookmark --pid $$ stats [--json]
 [vdso] PageStats { swapped: 0, present: 1, unmapped: 1, total: 2 }
 /usr/lib64/ld-2.32.so PageStats { swapped: 0, present: 46, unmapped: 0, total: 46 }
 /usr/lib64/zsh/5.8/zsh/parameter.so PageStats { swapped: 0, present: 12, unmapped: 1, total: 13 }
@@ -36,6 +38,22 @@ anon PageStats { swapped: 0, present: 26, unmapped: 8, total: 34 }
 [stack] PageStats { swapped: 0, present: 94, unmapped: 0, total: 94 }
 /usr/lib64/libc-2.32.so PageStats { swapped: 0, present: 398, unmapped: 57, total: 455 }
 ```
+
+#### Show information per physical page
+
+```shell
+$ sudo ./target/release/bookmark --pid $$ list
+7f02795c6000 bcf63c false Some("/usr/lib64/ld-linux-x86-64.so.2")
+7f02795c7000 ba697b false Some("/usr/lib64/ld-linux-x86-64.so.2")
+7fffdee91000 0 false Some("[stack]")
+7fffdee92000 0 false Some("[stack]")
+7fffdee93000 0 false Some("[stack]")
+7fffdeeaf000 8025aa false Some("[stack]")
+7fffdeeb0000 93acb0 false Some("[stack]")
+7fffdeeb1000 b869dc false Some("[stack]")
+[...]
+```
+
 
 ### Tests
 
