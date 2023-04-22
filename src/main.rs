@@ -7,8 +7,6 @@ use bookmark::memory;
 use bookmark::set_num_threads;
 use bookmark::stats;
 
-#[macro_use]
-extern crate more_asserts;
 
 #[derive(StructOpt)]
 struct Opt {
@@ -108,7 +106,6 @@ fn main() {
 mod tests {
     use nix::unistd::getpid;
 
-    use super::*;
     use crate::memory::*;
     use crate::stats::*;
     use std::mem;
@@ -143,8 +140,8 @@ mod tests {
         // As the pages haven't been touched yet, they are not mapped
         // at this point
         assert_eq!(after_alloc.unmapped, after_alloc.total);
-        assert_gt!(after_alloc.total, before.total);
+        assert!(after_alloc.total > before.total);
         // After touching them, they get mapped or present
-        assert_gt!(after_touch.present, before.present);
+        assert!(after_touch.present > before.present);
     }
 }

@@ -42,7 +42,7 @@ pub fn memory_maps(pid: u32) -> Vec<MemoryMap> {
         if let Ok(map) = line {
             let splitted_line = map.split_whitespace().collect::<Vec<&str>>();
             let (addr_range, path) = (splitted_line[0], splitted_line.get(5));
-            let mut split_addr = addr_range.split("-");
+            let mut split_addr = addr_range.split('-');
             let (low_addr, high_addr) = (split_addr.next().unwrap(), split_addr.next().unwrap());
             all_maps.push(MemoryMap {
                 low_addr: u64::from_str_radix(low_addr, 16).unwrap(),
@@ -56,6 +56,7 @@ pub fn memory_maps(pid: u32) -> Vec<MemoryMap> {
 }
 
 bitflags! {
+    #[derive(Clone, Copy)]
     pub struct PageMap: u64 {
         const PFN = (1 << 55) - 1;
         const SWAPPED = 1 << 62;
@@ -73,7 +74,7 @@ impl PageMap {
     }
 
     pub fn pfn(self) -> u64 {
-        (self & PageMap::PFN).bits
+        (self & PageMap::PFN).bits()
     }
 }
 

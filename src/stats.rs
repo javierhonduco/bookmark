@@ -5,6 +5,7 @@ use std::fs::File;
 use crate::memory;
 
 #[derive(Debug, Clone, Serialize)]
+#[derive(Default)]
 pub struct PageStats {
     pub swapped: u32,
     pub present: u32,
@@ -12,16 +13,7 @@ pub struct PageStats {
     pub total: u32,
 }
 
-impl Default for PageStats {
-    fn default() -> Self {
-        Self {
-            swapped: 0,
-            present: 0,
-            unmapped: 0,
-            total: 0,
-        }
-    }
-}
+
 
 pub fn page_stats(pid: u32) -> HashMap<String, PageStats> {
     let mut memory_maps = memory::memory_maps(pid);
